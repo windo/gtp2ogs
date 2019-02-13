@@ -32,6 +32,17 @@ class Game {
             this.log("Undo requested", JSON.stringify(undodata, null, 4));
         });
 
+        this.socket.on('game/' + game_id + '/reset-chats', (chat) => {
+            this.log('reset-chats');
+            this.socket.emit('chat-reset');
+        });
+        this.socket.on('game/' + game_id + '/chat', (chat) => {
+            this.log('Discussion', chat.line.username + ':', chat.line.body);
+        });
+        this.socket.on('game/' + game_id + '/message', (msg) => {
+            this.log(msg);
+        });
+
         this.socket.on('game/' + game_id + '/gamedata', (gamedata) => {
             if (!this.connected) return;
 
@@ -154,7 +165,9 @@ class Game {
                 console.error("Received move for " + this.game_id + "but no state exists");
                 // Try to connect again, to get the server to send the gamedata over.
                 this.socket.emit('game/connect', this.auth({
-                    'game_id': game_id
+                    'game_id': game_id,
+                    'player_id': this.conn.bot_id,
+                    'chat': 1,
                 }));
                 return;
             }
@@ -212,7 +225,12 @@ class Game {
         });
 
         this.socket.emit('game/connect', this.auth({
-            'game_id': game_id
+            'game_id': game_id,
+            'player_id': this.conn.bot_id,
+            'chat': 1,
+        }));
+        this.socket.emit('chat/join', this.auth({
+            'channel': 'game-' + game_id,
         }));
     } /* }}} */
 

@@ -65,18 +65,35 @@ class Connection {
             socket.emit('bot/id', {'id': config.username}, (obj) => {
                 this.bot_id = obj.id;
                 this.jwt = obj.jwt;
+
+                get(api1("ui/config"), this.auth({})).then((ui_config) => {
+                    conn_log(ui_config);
+                }).catch(conn_log);
+
                 if (!this.bot_id) {
                     console.error("ERROR: Bot account is unknown to the system: " +   config.username);
                     process.exit();
                 }
                 conn_log("Bot is username: " + config.username);
                 conn_log("Bot is user id:", this.bot_id);
-                socket.emit('authenticate', this.auth({}))
+                socket.emit('authenticate', this.auth({
+                    auth: 'chat_auth here',
+                }));
                 socket.emit('notification/connect', this.auth({}), (x) => {
                     conn_log(x);
-                })
-                socket.emit('bot/connect', this.auth({ }));
+                });
+                socket.emit('bot/connect', this.auth({}));
                 socket.emit('bot/hidden', !!config.hidden);
+                socket.emit('chat/connect', this.auth({
+                    auth: 'chat_auth here',
+                    player_id: this.bot_id,
+                    username: config.username,
+                }), (x) => {
+                    conn_log(x);
+                });
+                socket.emit('chat/pm/load', this.auth({}), (x) => {
+                    conn_log(x);
+                });
             });
         });
 
@@ -133,8 +150,9 @@ class Connection {
         socket.on('notification', (notification) => {
             if (this['on_' + notification.type]) {
                 this['on_' + notification.type](notification);
-            }
-            else if (!(notification.type in ignorable_notifications)) {
+            } else if (notification.type in ignorable_notifications) {
+                this.deleteNotification(notification);
+            } else if (!(notification.type in ignorable_notifications)) {
                 console.log("Unhandled notification type: ", notification.type, notification);
                 this.deleteNotification(notification);
             }
@@ -175,6 +193,11 @@ class Connection {
                 //     Work around it with a timeout for now.
                 setTimeout(() => {  this.disconnectFromGame(gamedata.id);  }, 1000);
             }
+        });
+
+        //   socket.io-parser decoded 2["private-message",{"from":{"id":792,"username":"podersiim","ranking":0,"ratings":{"overall":{"deviation":350,"rating":1500,"volatility":0.06,"games_played":0}},"country":"un","professional":0,"ui_class":"provisional"},"to":{"id":812,"username":"amybot-test"},"message":{"i":"ksw.2","t":1551167516,"m":"hi"}}] as {"type":2,"nsp":"/","data":["private-message",{"from":{"id":792,"username":"podersiim","ranking":0,"ratings":{"overall":{"deviation":350,"rating":1500,"volatility":0.06,"games_played":0}},"country":"un","professional":0,"ui_class":"provisional"},"to":{"id":812,"username":"amybot-test"},"message":{"i":"ksw.2","t":1551167516,"m":"hi"}}]} +3s
+        socket.on('private-message', (msg) => {
+            conn_log('PM from ' + msg.from.username + ': ' + msg.message.m);
         });
     }}}
     auth(obj) { /* {{{ */
@@ -916,7 +939,7 @@ function request(method, host, port, path, data) { /* {{{ */
 
         let headers = null;
         if (data._headers) {
-            data = dup(data)
+            // data = dup(data)
             headers = data._headers;
             delete data._headers;
         }
