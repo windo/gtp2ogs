@@ -230,6 +230,18 @@ class Game {
         this.socket.emit('game/connect', this.auth({
             'game_id': game_id
         }));
+
+        this.connect_timeout = setTimeout(()=>{
+            if (!this.state) {
+                this.log("No gamedata after 1s, reqesting again");
+                this.socket.emit('game/disconnect', this.auth({
+                    'game_id': game_id
+                }));
+                this.socket.emit('game/connect', this.auth({
+                    'game_id': game_id
+                }));
+            }
+        }, 1000);
     } /* }}} */
 
     startBot(eb) { /* {{{ */
